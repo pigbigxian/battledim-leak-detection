@@ -36,20 +36,23 @@ def load_scada(name: str) -> pd.DataFrame:
 
 # ===== 1. 逐表盘点 =====
 files = {
-    "flows": "2018_SCADA_Flows.csv",
-    "pressures": "2018_SCADA_Pressures.csv",
-    "demands": "2018_SCADA_Demands.csv",
-    "levels": "2018_SCADA_Levels.csv",
-    "leakages": "2018_Leakages.csv",
+    "flows": "2019_SCADA_Flows.csv",
+    "pressures": "2019_SCADA_Pressures.csv",
+    "demands": "2019_SCADA_Demands.csv",
+    "levels": "2019_SCADA_Levels.csv",
+    "leakages": "2019_Leakages.csv",
 }
 data = {}
 print("=" * 62)
+full_range = pd.date_range('2019-01-01 00:00:00', '2019-12-31 23:55:00', freq='5min')
 for key, fname in files.items():
     df = load_scada(fname)
+    n_missing_con=full_range.difference(df.index)
     data[key] = df
     n_missing = int(df.isna().sum().sum())
     print(f"{fname:<28} {df.shape[0]:>6} 行 × {df.shape[1]:>2} 列 | "
-          f"{df.index.min()} ~ {df.index.max()} | 缺失 {n_missing}")
+          f"{df.index.min()} ~ {df.index.max()} | 数据缺失 {n_missing}"
+          f"行数缺失 {len(n_missing_con)}")
 
 # ===== 2. 漏损事件验证：Leakages.csv 的非零时段 vs 官方档案 =====
 print("\n漏损标准答案（Leakages.csv 非零时段）：")
