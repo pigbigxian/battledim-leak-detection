@@ -1,0 +1,12 @@
+# 数据集大文件不入库（BattLeDIM SCADA 数据数百 MB）
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# 系统
+Thumbs.db
+desktop.ini
