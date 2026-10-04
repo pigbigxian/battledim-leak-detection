@@ -10,3 +10,7 @@ __pycache__/
 # 系统
 Thumbs.db
 desktop.ini
+
+# 实验临时文件
+temp.*
+*.rpt
