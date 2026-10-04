@@ -21,7 +21,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(BASE, "..", "data")
 FIGDIR = os.path.join(BASE, "..", "figures")
-GPKG = os.path.join(DATA, "ltown.gpkg")
+GPKG = os.path.join(DATA, "ltown_v2.gpkg")
 
 # ===== ① 载入模型 + 跑一次 24 小时水力模拟 =====
 wn = wntr.network.WaterNetworkModel(os.path.join(DATA, "L-TOWN.inp"))
@@ -41,33 +41,36 @@ for name, node in wn.nodes():
     })
 gdf_nodes = gpd.GeoDataFrame(node_rows, geometry="geometry", crs="EPSG:4326")
 
-# ===== ③ 管道图层：每根管道一条线，属性带管径和长度 =====
-pipe_rows = []
+# ===== ③ 管段图层：全部 909 根 link（管道 + 水泵 + 阀门），属性带类型 =====
+link_rows = []
 for name, link in wn.links():
-    if link.link_type != "Pipe":
-        continue
     u = wn.get_node(link.start_node).coordinates
     v = wn.get_node(link.end_node).coordinates
-    pipe_rows.append({
+    link_rows.append({
         "name": name,
-        "diameter_mm": round(link.diameter * 1000),   # inp 里是米，转毫米好读
-        "length_m": round(link.length, 1),
+        "type": link.link_type,                              # Pipe / Pump / Valve
+        "diameter_mm": round(link.diameter * 1000) if link.link_type == "Pipe" else None,
+        "length_m": round(link.length, 1) if getattr(link, "length", None) else None,
         "geometry": LineString([u, v]),
     })
-gdf_pipes = gpd.GeoDataFrame(pipe_rows, geometry="geometry", crs="EPSG:4326")
+gdf_links = gpd.GeoDataFrame(link_rows, geometry="geometry", crs="EPSG:4326")
 
-print(f"节点图层 {len(gdf_nodes)} 个要素 | 管道图层 {len(gdf_pipes)} 个要素")
+n_pipe = sum(1 for r in link_rows if r["type"] == "Pipe")
+n_pump = sum(1 for r in link_rows if r["type"] == "Pump")
+n_valve = sum(1 for r in link_rows if r["type"] == "Valve")
+print(f"节点图层 {len(gdf_nodes)} 个要素 | 管段图层 {len(gdf_links)} 个要素"
+      f"（管道 {n_pipe}、水泵 {n_pump}、阀门 {n_valve}）")
 
 # ===== ④ 写 GeoPackage（一个文件装两个图层）=====
 if os.path.exists(GPKG):
     os.remove(GPKG)
-gdf_pipes.to_file(GPKG, layer="pipes", driver="GPKG")
+gdf_links.to_file(GPKG, layer="links", driver="GPKG")
 gdf_nodes.to_file(GPKG, layer="nodes", driver="GPKG")
 print(f"已导出：{GPKG}")
 
 # ===== ⑤ 自检：用 geopandas 读回来画一张（QGIS 里打开后就是类似效果）=====
 fig, ax = plt.subplots(figsize=(10, 9))
-gdf_pipes.plot(ax=ax, color="gray", lw=0.6, aspect=None)
+gdf_links.plot(ax=ax, color="gray", lw=0.6, aspect=None)
 gdf_nodes.plot(ax=ax, column="pressure_m", cmap="viridis", markersize=6, aspect=None,
                legend=True, legend_kwds={"label": "末时刻压力 m"})
 ax.set_title("L-TOWN 管网（GeoPackage 预览，QGIS 打开效果类似）")
