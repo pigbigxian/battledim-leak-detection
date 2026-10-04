@@ -69,7 +69,7 @@ for e in abrupt:
 # ===== ② 特征工程：日级 SCADA 统计 =====
 flows = load("2018", "flows")
 flows["inflow"] = flows["p227"] + flows["p235"]          # 两个进水口合计
-night = flows.loc[flows.index.hour.isin([2, 3]), "inflow"]
+night = flows.loc[flows.index.hour.isin([2, 3, 4 ]), "inflow"]
 night_daily = night.groupby(night.index.normalize()).mean()   # ★夜间最小流量
 
 daily = flows["inflow"].resample("D").agg(inflow_mean="mean", inflow_max="max")
@@ -97,13 +97,14 @@ model.fit(train[FEATURES], train["label"])
 test = test.copy()
 test["proba"] = model.predict_proba(test[FEATURES])[:, 1]
 test["pred"] = (test["proba"] >= 0.5).astype(int)
+test["pred_3d"]=((test["pred"].rolling(window=2).sum()==2).fillna(test['pred'].astype(bool)).astype(int))
 
-print(f"\n查准率 precision：{precision_score(test['label'], test['pred']):.2f}"
+print(f"\n查准率 precision：{precision_score(test['label'], test['pred_3d']):.2f}"
       f"（报警了，多少次是真的）")
-print(f"查全率 recall   ：{recall_score(test['label'], test['pred']):.2f}"
+print(f"查全率 recall   ：{recall_score(test['label'], test['pred_3d']):.2f}"
       f"（真漏了，多少次被抓到）")
 print("混淆矩阵 [真负, 误报 / 漏报, 真正]：")
-print(confusion_matrix(test["label"], test["pred"]))
+print(confusion_matrix(test["label"], test["pred_3d"]))
 print("\n特征重要性 TOP8：")
 for name, imp in sorted(zip(FEATURES, model.feature_importances_),
                         key=lambda x: -x[1])[:8]:
